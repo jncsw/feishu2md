@@ -79,6 +79,9 @@ func handleUrlArgument(url string, verbose bool) error {
 	title := ""
 	markdown := ""
 
+	fmt.Println("Hello, ", docType)
+
+
 	// for a wiki page, we need to renew docType and docToken first
 	if docType == "wiki" {
 		node, err := client.GetWikiNodeInfo(ctx, docToken)
@@ -105,24 +108,39 @@ func handleUrlArgument(url string, verbose bool) error {
 		title = doc.Title.Elements[0].TextRun.Text
 	}
 
-	for _, imgToken := range parser.ImgTokens {
-		localLink, err := client.DownloadImage(ctx, imgToken)
-		if err != nil {
-			return err
-		}
-		markdown = strings.Replace(markdown, imgToken, localLink, 1)
-	}
-
 	engine := lute.New(func(l *lute.Lute) {
 		l.RenderOptions.AutoSpace = true
 	})
 	result := engine.FormatStr("md", markdown)
 
-	mdName := fmt.Sprintf("%s.md", docToken)
+	mdName := fmt.Sprintf("%s-0.md", docToken)
+	if config.Output.TitleAsFilename {
+		mdName = fmt.Sprintf("%s-0.md", title)
+	}
+	if err = os.WriteFile(mdName, []byte(result), 0o644); err != nil {
+		return err
+	}
+	fmt.Printf("Downloaded markdown file to %s\n", mdName)
+
+	fmt.Println("123")
+	for _, imgToken := range parser.ImgTokens {
+		localLink, err := client.DownloadImage(ctx, imgToken)
+		if err != nil {
+			return err
+		}
+		markdown = strings.Replace(markdown, "![]("+imgToken+")", "![]("+localLink+")", 1)
+	}
+
+	engine2 := lute.New(func(l *lute.Lute) {
+		l.RenderOptions.AutoSpace = true
+	})
+	result2 := engine2.FormatStr("md", markdown)
+
+	mdName2 := fmt.Sprintf("%s.md", docToken)
 	if config.Output.TitleAsFilename {
 		mdName = fmt.Sprintf("%s.md", title)
 	}
-	if err = os.WriteFile(mdName, []byte(result), 0o644); err != nil {
+	if err = os.WriteFile(mdName2, []byte(result2), 0o644); err != nil {
 		return err
 	}
 	fmt.Printf("Downloaded markdown file to %s\n", mdName)
